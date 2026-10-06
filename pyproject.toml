@@ -1,0 +1,66 @@
+[project]
+name = "athenas-trichology"
+version = "0.1.0"
+description = "Athenas — lightweight computer-vision pipeline for comparing two trichology photographs (baseline vs follow-up)."
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "MIT" }
+authors = [
+    { name = "Athenas Lab" }
+]
+keywords = ["trichology", "computer-vision", "opencv", "hair-analysis"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Healthcare Industry",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Image Processing",
+    "Topic :: Scientific/Engineering :: Medical Science Apps.",
+]
+dependencies = [
+    "click>=8.1",
+    "fastapi>=0.115",
+    "matplotlib>=3.9",
+    "numpy>=2.0",
+    "opencv-python>=4.10",
+    "pillow>=10.4",
+    "pillow-heif>=1.8.0",
+    "pydantic-settings>=2.2",
+    "python-multipart>=0.0.12",
+    "rembg[cpu]>=2.0",
+    "uvicorn[standard]>=0.32",
+]
+
+[project.optional-dependencies]
+dev = [
+    "httpx>=0.27",
+    "pytest>=8.3",
+    "pytest-asyncio>=0.23",
+    "ruff>=0.6",
+]
+
+[project.scripts]
+athenas = "athenas.__main__:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/athenas"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "N", "W"]
+ignore = ["E501", "N803", "N806"]  # N803/N806: X is canonical for ML feature matrices.
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]
+pythonpath = ["src", "."]
+addopts = ["-ra", "--strict-markers"]
+asyncio_mode = "auto"

@@ -1,0 +1,1 @@
+"""Athenas FastAPI app package."""
