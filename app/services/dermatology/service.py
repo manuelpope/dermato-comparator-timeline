@@ -1,11 +1,10 @@
-"""Dermatology orchestrator — load N images, run 4 filters in parallel, emit PDF.
+"""Dermatology orchestrator — load N images, run 4 filters on every photo, emit PDF.
 
 The 4 visual filters (CLAHE, B&W contrast, color contrast, scale
-normalisation) are applied **only to the most recent** photo (the last
-upload in the series — ``photo_c`` if 3 were given, else ``photo_b``,
-else ``photo_a``). Older photos are kept as raw RGB for the temporal
-evolution page so the clinician can see growth/colour drift side by
-side with the filtered current state.
+normalisation) are applied to **every** photo in the series. The PDF
+then renders one page per filter with the temporal series side-by-side
+(``A`` vs ``B`` vs ``C`` within each filter) so the clinician can see
+how the lesion evolved under each specific filter treatment.
 """
 
 from __future__ import annotations
@@ -20,7 +19,7 @@ import numpy as np
 from fastapi import UploadFile
 
 from app.core.config import Settings
-from app.services.dermatology.filters import parallel_apply_filters
+from app.services.dermatology.filters import LesionResult, parallel_apply_filters
 from app.services.pdf import build_dermatology_pdf
 from athenas.io import read_rgb
 

@@ -9,6 +9,7 @@ from __future__ import annotations
 import tempfile
 from io import BytesIO
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import matplotlib
 
@@ -19,8 +20,14 @@ import matplotlib.pyplot as plt  # noqa: E402
 import numpy as np  # noqa: E402
 from matplotlib.backends.backend_pdf import PdfPages  # noqa: E402
 
-from app.services.dermatology.filters import LesionResult
 from athenas.report import make_report
+
+if TYPE_CHECKING:
+    # Imported only for type hints — keeps the import chain
+    # `pdf → filters → service → pdf` from being evaluated at runtime
+    # (otherwise ``app.services.dermatology``'s ``__init__.py`` triggers
+    # loading ``service.py`` while ``pdf`` is still being constructed).
+    from app.services.dermatology.filters import LesionResult
 
 # ---------------------------------------------------------------------------
 # Trichology PDF (delegates to athenas.report.make_report)
@@ -86,44 +93,48 @@ def _resize_to_panel(arr: np.ndarray, target_h: int) -> np.ndarray:
     return cv2.resize(arr, (new_w, target_h), interpolation=cv2.INTER_AREA)
 
 
-def _draw_lesion_page(
+def _draw_filter_page(
     pdf: PdfPages,
-    lesion: LesionResult,
-    index: int,
-    date: str | None = None,
+    lesions: list[LesionResult],
+    names: list[str],
+    dates: list[str | None],
+    *,
+    filter_key: str,
+    filter_label: str,
 ) -> None:
-    """One A4-landscape page with a 2×2 grid of the 4 filter outputs."""
+    """One A4-landscape page: temporal series (A vs B vs C) under one filter.
+
+    Each lesion contributes one panel; the panel shows that lesion's
+    output for ``filter_key`` (e.g. ``clahe``, ``bw``, ``color`` or
+    ``normalised``) — so within one page the clinician sees the temporal
+    drift of the lesion under the same filter treatment.
+    """
+    n = len(lesions)
     page_w, page_h = 11.0, 8.5  # A4 landscape in inches
-    fig, axs = plt.subplots(2, 2, figsize=(page_w, page_h))
+    fig, axs = plt.subplots(1, n, figsize=(page_w, page_h))
+    if n == 1:
+        axs = [axs]
 
-    suptitle = f"Athenas — Dermatología · Lesión {index}"
-    if lesion.name:
-        suptitle += f"  ·  {lesion.name}"
-    fig.suptitle(suptitle, fontsize=13, weight="bold", y=0.995)
+    suptitle = f"Athenas — Dermatología · {filter_label}"
+    fig.suptitle(suptitle, fontsize=14, weight="bold", y=0.985)
 
-    # Date subtitle sits just below the title, italic, small.
-    if date:
-        fig.text(
-            0.5, 0.965,
-            f"Fecha: {date}",
-            ha="center", va="top", style="italic", fontsize=10, color="#444",
-        )
-
-    sources: dict[str, np.ndarray] = {
-        "clahe": lesion.filters.clahe,
-        "bw": lesion.filters.bw,
-        "color": lesion.filters.color,
-        "normalised": lesion.filters.normalised,
-    }
-
-    for ax, (key, label) in zip(axs.flat, _FILTER_LABELS, strict=True):
-        rgb = _to_3ch(sources[key])
-        rgb = _resize_to_panel(rgb, target_h=320)
+    for i, (ax, lesion, name, date) in enumerate(
+        zip(axs, lesions, names, dates, strict=True), start=1,
+    ):
+        rgb = getattr(lesion.filters, filter_key)
+        rgb = _to_3ch(rgb)
+        rgb = _resize_to_panel(rgb, target_h=420)
         ax.imshow(rgb)
-        ax.set_title(label, fontsize=11, weight="bold", loc="left")
-        ax.axis("off")
+        caption = f"Lesión {i} · {name}"
+        if date:
+            caption += f"\nFecha: {date}"
+        ax.set_xlabel(caption, fontsize=11, weight="bold", labelpad=8)
+        ax.set_xticks([])
+        ax.set_yticks([])
+        for spine in ax.spines.values():
+            spine.set_visible(False)
 
-    pdf.savefig(fig, bbox_inches="tight", pad_inches=0.2)
+    pdf.savefig(fig, bbox_inches="tight", pad_inches=0.3)
     plt.close(fig)
 
 
@@ -173,6 +184,16 @@ def _draw_notes_page(
         line_(line_text, size=9.5)
     cursor_y -= 0.02
 
+    line_("Estructura del reporte", bold=True)
+    line_(
+        "Cada filtro visual (CLAHE, B&W alta definición, Color con mejor "
+        "contraste, Normalización de escala) tiene su propia página, con "
+        "la serie temporal lado a lado (A vs B vs C). Esto permite ver "
+        "cómo evoluciona la lesión bajo el mismo tratamiento de realce.",
+        italic=True, size=9.5,
+    )
+    cursor_y -= 0.02
+
     notes = [
         (
             "CLAHE (Lab-L)",
@@ -211,16 +232,26 @@ def build_dermatology_pdf(
 ) -> bytes:
     """Render the dermatology PDF to bytes (no disk).
 
+    Layout (always ``len(_FILTER_LABELS) + 1`` pages, regardless of N photos):
+
+    * One page per filter — temporal series side-by-side (A vs B vs C
+      within that filter).
+    * Final notes page — clinical disclaimer + per-filter explanation.
+
     ``dates`` is an optional list of human-readable date strings, parallel
     to ``names`` (same length as ``lesions``). Missing entries are
-    silently skipped — both the per-lesion page subtitle and the final
-    notes page omit them.
+    silently skipped — both the per-page captions and the final notes
+    page omit them.
     """
     if dates is None:
         dates = [None] * len(lesions)
     buf = BytesIO()
     with PdfPages(buf) as pdf:
-        for idx, (lesion, date) in enumerate(zip(lesions, dates, strict=True), start=1):
-            _draw_lesion_page(pdf, lesion, idx, date=date)
+        for filter_key, filter_label in _FILTER_LABELS:
+            _draw_filter_page(
+                pdf, lesions, names, dates,
+                filter_key=filter_key,
+                filter_label=filter_label,
+            )
         _draw_notes_page(pdf, names, dates)
     return buf.getvalue()
