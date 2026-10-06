@@ -1,0 +1,52 @@
+# Athenas API — local docker-compose.
+#
+# MVP1 ships one service (the FastAPI app). The CLI tool inside the image
+# is also reachable as `docker compose run --rm api uv run athenas ...`.
+#
+# Usage:
+#   docker compose up --build            # foreground
+#   docker compose up --build -d         # background
+#   docker compose logs -f api           # tail logs
+#   docker compose down                  # stop + remove containers
+#
+# Notes:
+# - No `data/` is bundled into the image — mount your own photos via -v if needed.
+# - `./outputs` is mounted so any CLI run inside the container can write reports.
+# - The container is non-root (UID/GID 1000) and exposes port 8000.
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        PYTHON_VERSION: "3.12"
+    image: athenas-api:local
+    container_name: athenas-api
+    restart: unless-stopped
+    ports:
+      - "9096:8000"
+    env_file:
+      - path: ./.env
+        required: false
+    environment:
+      # Sensible dev defaults — override via .env or `environment:` here.
+      ATHENAS_CORS_ALLOW_ORIGINS: '["*"]'
+      ATHENAS_MAX_UPLOAD_SIZE_MB: "25"
+      ATHENAS_TRICHOLOGY_BG_METHOD: "grabcut"
+      ATHENAS_TRICHOLOGY_DISPLAY_HEIGHT_PX: "800"
+      ATHENAS_TRICHOLOGY_CLAHE_CLIP_LIMIT: "3.0"
+      ATHENAS_DERM_TARGET_HEIGHT_PX: "600"
+      ATHENAS_DERM_CLAHE_CLIP_LIMIT: "2.0"
+      ATHENAS_DERM_SATURATION_BOOST: "1.2"
+    volumes:
+      # CLI output dir (if you ever run the CLI inside the container).
+      - ./outputs:/app/outputs
+      # Optional: mount your own sample folder instead of building it in.
+      # - ./my_samples:/data:ro
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://127.0.0.1:8000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s

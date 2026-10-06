@@ -307,7 +307,51 @@ uv run uvicorn app.main:app --reload --port 8000
 open http://127.0.0.1:8000/docs
 ```
 
-### Examples
+### Run with Docker / Docker Compose
+
+A multi-stage `Dockerfile` (slim Python 3.12 + `uv` for fast installs) and
+a single-service `docker-compose.yml` ship next to the source. The image
+runs as a **non-root** user (`uid=1000`), exposes port `8000`, and
+**does not bundle `data/`** — mount your own folder at runtime if you
+need sample photos for testing.
+
+```bash
+# Build + run detached
+docker compose up --build -d
+
+# Tail logs
+docker compose logs -f api
+
+# Healthcheck
+curl -sf http://127.0.0.1:8000/health
+
+# Open the auto-generated docs
+open http://127.0.0.1:8000/docs
+
+# Tear down
+docker compose down
+```
+
+Environment overrides via `.env` (optional, not required to boot):
+
+```env
+ATHENAS_CORS_ALLOW_ORIGINS=["*"]
+ATHENAS_MAX_UPLOAD_SIZE_MB=25
+ATHENAS_TRICHOLOGY_BG_METHOD=grabcut
+ATHENAS_TRICHOLOGY_DISPLAY_HEIGHT_PX=800
+ATHENAS_TRICHOLOGY_CLAHE_CLIP_LIMIT=3.0
+ATHENAS_DERM_TARGET_HEIGHT_PX=600
+ATHENAS_DERM_CLAHE_CLIP_LIMIT=2.0
+ATHENAS_DERM_SATURATION_BOOST=1.2
+```
+
+Run the bundled CLI from inside the running container:
+
+```bash
+docker compose run --rm api uv run athenas /data/sample_a.jpg /data/sample_b.jpg -o ./scratch
+```
+
+### Examples (API)
 
 ```bash
 # Trichology: two scalp photos, GrabCut background removal (default)

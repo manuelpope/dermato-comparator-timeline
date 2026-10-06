@@ -1,0 +1,68 @@
+# Keep the build context small and free of any sensitive files.
+#
+# Privacy note (hard rule from the project owner):
+#   DO NOT bundle `data/` (real patient photos) into the image.
+#   Mount your own samples at runtime via a volume if you need them.
+
+# --- VCS / editor / OS junk ---
+.git/
+.gitignore
+.gitattributes
+.github/
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*~
+
+# --- Python junk ---
+.venv/
+venv/
+__pycache__/
+**/__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+*.egg-info/
+build/
+dist/
+
+# --- Sample data and generated artifacts (privacy!) ---
+data/
+outputs/
+logs/
+*.JPG
+*.JPEG
+*.jpg
+*.jpeg
+*.PNG
+*.png
+*.HEIC
+*.heic
+*.WEBP
+*.webp
+*.TIFF
+*.tiff
+*.pdf
+
+# --- Notebooks / scratch ---
+*.ipynb
+.ipynb_checkpoints/
+
+# --- Tests (don't ship test framework inside the prod image) ---
+tests/
+
+# --- Local config that may carry secrets ---
+.env
+.env.*
+!.env.example
+
+# --- Docker / compose meta (we only need the Dockerfile at build time) ---
+docker-compose.yml
+Dockerfile
+.dockerignore
