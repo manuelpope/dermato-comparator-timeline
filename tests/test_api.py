@@ -13,6 +13,7 @@ import io
 import pytest
 from fastapi.testclient import TestClient
 
+from app.api.v1._headers import safe_filename_part
 from app.main import create_app
 from app.services import dermatology as derm_service
 from app.services import trichology as tri_service
@@ -62,6 +63,20 @@ def test_openapi_lists_both_routes(client):
     paths = r.json()["paths"].keys()
     assert "/v1/trichology/compare" in paths
     assert "/v1/dermatology/compare" in paths
+
+
+def test_safe_filename_part_neutralises_header_injection():
+    """The download name must never be able to break out of its header."""
+    assert safe_filename_part("P-42") == "P-42"
+    assert safe_filename_part("paciente_2026") == "paciente_2026"
+    # A quote or a semicolon would close the quoted filename value and
+    # let another header parameter be injected.
+    assert '"' not in safe_filename_part('x"; filename="evil.pdf')
+    assert ";" not in safe_filename_part("x; filename=evil.pdf")
+    assert "\r" not in safe_filename_part("x\r\nX-Injected: 1")
+    # Path separators and empty values are handled too.
+    assert "/" not in safe_filename_part("../../etc/passwd")
+    assert safe_filename_part("") == "x"
 
 
 # ---------------------------------------------------------------------------

@@ -9,6 +9,7 @@ from typing import Annotated, Literal
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile, status
 from fastapi.responses import StreamingResponse
 
+from app.api.v1._headers import safe_filename_part
 from app.core.config import get_settings
 from app.services import trichology as service
 
@@ -51,9 +52,9 @@ async def compare(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 
     today = datetime.now().strftime("%Y%m%d")
-    patient_slug = patient_id or "patient"
-    a = Path(baseline.filename or "A").stem
-    b = Path(followup.filename or "B").stem
+    patient_slug = safe_filename_part(patient_id or "patient")
+    a = safe_filename_part(Path(baseline.filename or "A").stem)
+    b = safe_filename_part(Path(followup.filename or "B").stem)
     filename = f"trichology_{patient_slug}_{today}_{a}_vs_{b}.pdf"
     return StreamingResponse(
         iter([pdf_bytes]),

@@ -43,6 +43,20 @@ class Settings(BaseSettings):
     derm_clahe_clip_limit: float = 2.0
     derm_saturation_boost: float = 1.2
 
+    # ---- Aesthetics (Botox before/after) defaults ------------------------
+    # The head of the normalised face is rendered at this height, so both
+    # photos end up with the exact same face size in the report.
+    aesthetics_target_height_px: int = 900
+    # Extra margin around the face oval when cropping (fraction of the
+    # face size) — keeps hair and chin inside the frame.
+    aesthetics_face_padding_frac: float = 0.25
+    # Percentile used by the expression-line detector. Higher = only the
+    # most marked lines are kept.
+    aesthetics_wrinkle_threshold_percentile: float = 92.0
+    # Black-hat kernel length (px) and minimum line length (px).
+    aesthetics_wrinkle_kernel_length: int = 15
+    aesthetics_wrinkle_min_line_length: int = 12
+
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:

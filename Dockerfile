@@ -16,8 +16,9 @@ ARG PYTHON_VERSION=3.12
 # ---------------------------------------------------------------------------
 FROM python:${PYTHON_VERSION}-slim AS builder
 
-# System deps needed by `uv` itself and by `pillow-heif` / `opencv-python`.
-# No need for OpenCV GUI deps — `opencv-python` (the headless wheel) ships its own.
+# System deps needed by `uv` itself and by `pillow-heif` / `opencv-contrib-python`.
+# No need for OpenCV GUI deps — the wheel ships its own Qt-free binaries
+# (only `libgl1` is required at runtime, installed in the runtime stage).
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
         ca-certificates \
@@ -36,6 +37,7 @@ WORKDIR /app
 COPY pyproject.toml uv.lock README.md ./
 COPY src ./src
 COPY app ./app
+COPY static ./static
 
 # Production install — no dev deps, frozen lockfile, no cache to keep the
 # layer small.
@@ -50,13 +52,21 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 FROM python:${PYTHON_VERSION}-slim AS runtime
 
 # Runtime system deps — minimal set for OpenCV + pillow-heif.
+# `libstdc++6` + `libgomp1` are required by MediaPipe / TensorFlow Lite
+# (used by the aesthetics face-landmarker endpoint), and MediaPipe's native
+# lib also links against OpenGL ES (`libgles2` → libGLESv2.so.2) and EGL
+# (`libegl1` → libEGL.so.1) — both are needed even in headless mode.
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
         ca-certificates \
         curl \
+        libegl1 \
         libgl1 \
         libglib2.0-0 \
+        libgles2 \
+        libgomp1 \
         libheif1 \
+        libstdc++6 \
  && rm -rf /var/lib/apt/lists/*
 
 # Non-root user — uploaded photos and tempfiles live under /app.
@@ -69,12 +79,14 @@ WORKDIR /app
 COPY --from=builder --chown=app:app /app/.venv /app/.venv
 COPY --from=builder --chown=app:app /app/src /app/src
 COPY --from=builder --chown=app:app /app/app /app/app
+COPY --from=builder --chown=app:app /app/static /app/static
 COPY --from=builder --chown=app:app /app/pyproject.toml /app/uv.lock ./
 
 ENV PATH="/app/.venv/bin:$PATH" \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PYTHONPATH=/app \
+    MPLCONFIGDIR=/tmp/matplotlib \
     ATHENAS_CORS_ALLOW_ORIGINS='["*"]'
 
 USER app
