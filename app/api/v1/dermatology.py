@@ -13,6 +13,7 @@ from typing import Annotated
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile, status
 from fastapi.responses import StreamingResponse
 
+from app.api.v1._headers import safe_filename_part
 from app.core.config import get_settings
 from app.services import dermatology as service
 
@@ -81,7 +82,7 @@ async def compare(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 
     today = datetime.now().strftime("%Y%m%d")
-    patient_slug = patient_id or "patient"
+    patient_slug = safe_filename_part(patient_id or "patient")
     filename = f"dermatology_{patient_slug}_{today}_{len(photos)}_lesions.pdf"
     return StreamingResponse(
         iter([pdf_bytes]),

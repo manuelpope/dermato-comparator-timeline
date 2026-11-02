@@ -27,6 +27,7 @@ if TYPE_CHECKING:
     # `pdf → filters → service → pdf` from being evaluated at runtime
     # (otherwise ``app.services.dermatology``'s ``__init__.py`` triggers
     # loading ``service.py`` while ``pdf`` is still being constructed).
+    from app.services.aesthetics.analysis import AestheticsAnalysis
     from app.services.dermatology.filters import LesionResult
 
 # ---------------------------------------------------------------------------
@@ -254,4 +255,249 @@ def build_dermatology_pdf(
                 filter_label=filter_label,
             )
         _draw_notes_page(pdf, names, dates)
+    return buf.getvalue()
+
+
+# ---------------------------------------------------------------------------
+# Aesthetics PDF — NEW, 3 pages: normalised + wrinkle relief, B&W + change
+# map, and the metrics / protocol-check table.
+# ---------------------------------------------------------------------------
+
+
+def _aesthetics_caption(
+    label: str,
+    date: str | None,
+    name: str | None,
+) -> str:
+    """Caption under one face panel: 'Antes · 2026-01-15 · file.png'."""
+    parts = [label]
+    if date:
+        parts.append(date)
+    if name:
+        parts.append(name)
+    return " · ".join(parts)
+
+
+def _draw_aesthetics_faces_page(
+    pdf: PdfPages,
+    analysis: AestheticsAnalysis,
+    before_caption: str,
+    after_caption: str,
+) -> None:
+    """Page 1 — the normalised pair + the expression-line relief."""
+    views = analysis.views
+    page_w, page_h = 11.0, 8.5  # A4 landscape
+    fig, axs = plt.subplots(2, 2, figsize=(page_w, page_h))
+    fig.suptitle(
+        "Athenas — Estética · Rostro normalizado y líneas de expresión",
+        fontsize=14, weight="bold", y=0.98,
+    )
+
+    panels = [
+        (axs[0][0], views.before.normalised, before_caption),
+        (axs[0][1], views.after.normalised, after_caption),
+        (axs[1][0], views.before.wrinkles, f"{before_caption} · líneas"),
+        (axs[1][1], views.after.wrinkles, f"{after_caption} · líneas"),
+    ]
+    for ax, image, caption in panels:
+        ax.imshow(_to_3ch(image))
+        ax.set_xlabel(caption, fontsize=10, weight="bold", labelpad=6)
+        ax.set_xticks([])
+        ax.set_yticks([])
+        for spine in ax.spines.values():
+            spine.set_visible(False)
+
+    fig.text(
+        0.5, 0.015,
+        "Ambas caras están alineadas, recortadas y escaladas al mismo tamaño "
+        "de cabeza (mismo eje de ojos) para que la comparación sea válida.",
+        ha="center", fontsize=8.5, style="italic", color="#444444",
+    )
+    pdf.savefig(fig, bbox_inches="tight", pad_inches=0.3)
+    plt.close(fig)
+
+
+def _draw_aesthetics_bw_change_page(
+    pdf: PdfPages,
+    analysis: AestheticsAnalysis,
+    before_caption: str,
+    after_caption: str,
+) -> None:
+    """Page 2 — B&W relief (both photos) + the before→after change map."""
+    views = analysis.views
+    page_w, page_h = 11.0, 8.5
+    fig = plt.figure(figsize=(page_w, page_h))
+    fig.suptitle(
+        "Athenas — Estética · Relieve en B&W (CLAHE + nitidez) y mapa de cambio",
+        fontsize=14, weight="bold", y=0.98,
+    )
+    grid = fig.add_gridspec(2, 2, height_ratios=[1.0, 1.15])
+
+    ax_bw_before = fig.add_subplot(grid[0, 0])
+    ax_bw_after = fig.add_subplot(grid[0, 1])
+    ax_change = fig.add_subplot(grid[1, :])
+
+    ax_bw_before.imshow(_to_3ch(views.before.bw))
+    ax_bw_before.set_xlabel(before_caption, fontsize=10.5, weight="bold")
+    ax_bw_after.imshow(_to_3ch(views.after.bw))
+    ax_bw_after.set_xlabel(after_caption, fontsize=10.5, weight="bold")
+    ax_change.imshow(views.change_map)
+    ax_change.set_xlabel(
+        "Mapa de cambio antes → después (INFERNO: rojo = mayor diferencia)",
+        fontsize=10.5, weight="bold",
+    )
+
+    for ax in (ax_bw_before, ax_bw_after, ax_change):
+        ax.set_xticks([])
+        ax.set_yticks([])
+        for spine in ax.spines.values():
+            spine.set_visible(False)
+
+    pdf.savefig(fig, bbox_inches="tight", pad_inches=0.3)
+    plt.close(fig)
+
+
+def _draw_aesthetics_metrics_page(
+    pdf: PdfPages,
+    analysis: AestheticsAnalysis,
+    *,
+    date_before: str | None,
+    date_after: str | None,
+    before_name: str | None,
+    after_name: str | None,
+    patient_id: str | None = None,
+) -> None:
+    """Page 3 — per-region densities + protocol checks + disclaimer."""
+    page_w, page_h = 8.5, 11.0  # portrait
+    fig, ax = plt.subplots(figsize=(page_w, page_h))
+    ax.axis("off")
+    title = "Athenas — Estética · Métricas y protocolo de captura"
+    if patient_id:
+        title = f"Athenas — Estética · {patient_id} · Métricas y protocolo de captura"
+    fig.suptitle(title, fontsize=13, weight="bold", y=0.975)
+
+    cursor_y = 0.945
+    line_height = 0.026
+
+    def line_(text: str, *, bold: bool = False, italic: bool = False, size: float = 11.5) -> None:
+        nonlocal cursor_y
+        ax.text(
+            0.05, cursor_y, text,
+            ha="left", va="top", transform=ax.transAxes,
+            fontsize=size, weight="bold" if bold else "normal",
+            style="italic" if italic else "normal",
+        )
+        cursor_y -= line_height
+
+    line_("Comparación", bold=True)
+    line_(f"Foto anterior: {date_before or '—'} · {before_name or '—'}", size=11)
+    line_(f"Foto posterior: {date_after or '—'} · {after_name or '—'}", size=11)
+    cursor_y -= 0.012
+
+    alignment = analysis.alignment
+    line_("Normalización aplicada", bold=True)
+    line_(
+        f"Escala corregida ×{alignment.scale:.3f} · "
+        f"rotación {alignment.rotation_deg:+.2f}° · "
+        f"distancia interpupilar relativa {alignment.ipd_ratio_b_over_a:.3f}",
+        size=11,
+    )
+    line_(
+        f"Ambas caras se recortaron con la misma ventana y se escalaron a "
+        f"{analysis.target_height} px de alto.",
+        italic=True, size=11,
+    )
+    cursor_y -= 0.012
+
+    line_("Densidad de líneas por región", bold=True)
+    headers = ["Región", "Antes", "Después", "Cambio"]
+    rows = []
+    for delta in analysis.region_deltas:
+        if delta.delta_pct is None:
+            change = "—"
+        elif delta.delta_pct < -1:
+            change = f"▼ {abs(delta.delta_pct):.1f}%"
+        elif delta.delta_pct > 1:
+            change = f"▲ {delta.delta_pct:.1f}%"
+        else:
+            change = f"{delta.delta_pct:+.1f}%"
+        rows.append(
+            [
+                delta.label,
+                f"{delta.density_before * 100:.2f}%",
+                f"{delta.density_after * 100:.2f}%",
+                change,
+            ]
+        )
+    row_h = 0.030
+    table = ax.table(
+        cellText=rows,
+        colLabels=headers,
+        cellLoc="center",
+        loc="upper left",
+        bbox=[0.05, cursor_y - 0.014 - row_h * len(rows), 0.9, row_h * len(rows)],
+    )
+    table.auto_set_font_size(False)
+    table.set_fontsize(10.5)
+    cursor_y -= 0.014 + row_h * len(rows)
+    cursor_y -= 0.012
+
+    line_("Protocolo de captura", bold=True)
+    for check in analysis.protocol_checks:
+        icon = "OK" if check.passed else "REVISAR"
+        line_(f"[{icon}] {check.message}", size=11)
+    cursor_y -= 0.012
+
+    line_("Disclaimer clínico", bold=True)
+    line_(
+        "Ayuda visual para la comparación antes/después de una sesión de "
+        "botox. Las densidades de línea son un descriptor cuantitativo de la "
+        "imagen, no un diagnóstico ni una medición clínica validada. La "
+        "valoración final es del profesional tratante.",
+        italic=True, size=11,
+    )
+
+    pdf.savefig(fig, bbox_inches="tight", pad_inches=0.4)
+    plt.close(fig)
+
+
+def build_aesthetics_pdf(
+    analysis: AestheticsAnalysis,
+    *,
+    patient_id: str | None = None,
+    date_before: str | None = None,
+    date_after: str | None = None,
+    before_name: str | None = None,
+    after_name: str | None = None,
+) -> bytes:
+    """Render the aesthetics (Botox before/after) PDF to bytes (no disk).
+
+    Three pages:
+
+    * Page 1 — the normalised pair (colour) + the expression-line relief
+      (magenta overlay) of both photos.
+    * Page 2 — the B&W high-definition pair + the before→after change map.
+    * Page 3 — per-region density table, capture-protocol checks and the
+      clinical disclaimer.
+    """
+    before_caption = _aesthetics_caption("Antes", date_before, before_name)
+    after_caption = _aesthetics_caption("Después", date_after, after_name)
+    before_short = _aesthetics_caption("Antes", date_before, None)
+    after_short = _aesthetics_caption("Después", date_after, None)
+    before_title = f"{patient_id} · {before_caption}" if patient_id else before_caption
+    after_title = f"{patient_id} · {after_caption}" if patient_id else after_caption
+
+    buf = BytesIO()
+    with PdfPages(buf) as pdf:
+        _draw_aesthetics_faces_page(pdf, analysis, before_title, after_title)
+        _draw_aesthetics_bw_change_page(pdf, analysis, before_short, after_short)
+        _draw_aesthetics_metrics_page(
+            pdf,
+            analysis,
+            date_before=date_before,
+            date_after=date_after,
+            before_name=before_name,
+            after_name=after_name,
+            patient_id=patient_id,
+        )
     return buf.getvalue()

@@ -1,0 +1,778 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Athenas — Guía de endpoints</title>
+<style>
+  :root{
+    --bg:#faf9f7;
+    --surface:#ffffff;
+    --ink:#16161a;
+    --muted:#6d6d73;
+    --faint:#8e8e96;
+    --line:#e6e3de;
+    --line-soft:#f0eeea;
+    --ok:#0d7a4f;
+    --err:#b3261e;
+    --warn:#8a6100;
+    --radius:10px;
+    --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+  }
+  @media (prefers-color-scheme:dark){
+    :root{
+      --bg:#111113;
+      --surface:#171719;
+      --ink:#ececed;
+      --muted:#a0a0a8;
+      --faint:#7c7c85;
+      --line:#2a2a2e;
+      --line-soft:#222225;
+      --ok:#4fbe8b;
+      --err:#f2837b;
+      --warn:#d8ab4a;
+    }
+  }
+
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font:15px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  h1,h2,h3{margin:0;font-weight:600;letter-spacing:-.01em}
+  p{margin:0}
+  a{color:inherit}
+
+  .wrap{max-width:1120px;margin:0 auto;padding:0 24px}
+
+  /* ---------- header ---------- */
+  header.top{
+    border-bottom:1px solid var(--line);
+    background:var(--surface);
+  }
+  .top-in{
+    display:flex;align-items:center;justify-content:space-between;gap:24px;
+    padding:16px 24px;flex-wrap:wrap;
+  }
+  .brand{display:flex;align-items:center;gap:12px}
+  .mark{
+    width:26px;height:26px;border-radius:7px;flex:none;
+    background:var(--ink);
+    position:relative;
+  }
+  .mark::after{
+    content:"";position:absolute;inset:8px;border-radius:3px;
+    background:var(--surface);
+  }
+  .brand h1{font-size:16px}
+  .brand p{font-size:12.5px;color:var(--muted)}
+
+  .conn{display:flex;align-items:center;gap:8px}
+  .conn label{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+  .conn input{
+    font:13px var(--mono);
+    padding:6px 10px;
+    width:230px;
+    color:var(--ink);
+    background:var(--bg);
+    border:1px solid var(--line);
+    border-radius:8px;
+  }
+  .conn input:focus{outline:2px solid var(--ink);outline-offset:-1px}
+
+  /* ---------- buttons ---------- */
+  button{
+    font:inherit;font-size:13.5px;cursor:pointer;
+    border-radius:8px;border:1px solid var(--line);
+    padding:7px 13px;background:var(--surface);color:var(--ink);
+    transition:background .12s,border-color .12s,opacity .12s;
+  }
+  button:hover:not(:disabled){border-color:var(--faint)}
+  button:disabled{opacity:.5;cursor:not-allowed}
+  button.primary{
+    background:var(--ink);color:var(--bg);border-color:var(--ink);
+    font-weight:550;padding:10px 20px;
+  }
+  button.primary:hover:not(:disabled){opacity:.88}
+  button.ghost{background:transparent}
+
+  .pill{
+    font-size:12px;padding:4px 10px;border-radius:99px;
+    border:1px solid var(--line);color:var(--muted);white-space:nowrap;
+  }
+  .pill.ok{color:var(--ok);border-color:color-mix(in srgb,var(--ok) 35%,transparent)}
+  .pill.err{color:var(--err);border-color:color-mix(in srgb,var(--err) 35%,transparent)}
+
+  /* ---------- tabs ---------- */
+  nav.tabs{
+    display:flex;gap:2px;flex-wrap:wrap;
+    border-bottom:1px solid var(--line);
+    background:var(--surface);
+    position:sticky;top:0;z-index:19;
+  }
+  nav.tabs button{
+    border:none;border-bottom:2px solid transparent;border-radius:0;
+    background:none;padding:13px 16px;color:var(--muted);font-size:14px;
+  }
+  nav.tabs button:hover{color:var(--ink)}
+  nav.tabs button[aria-selected="true"]{
+    color:var(--ink);font-weight:550;border-bottom-color:var(--ink);
+  }
+
+  /* ---------- layout ---------- */
+  main{padding:34px 0 70px}
+  .ep{display:none}
+  .ep.on{display:block}
+  .ep-head{margin-bottom:26px}
+  .ep-head h2{font-size:24px}
+  .path{
+    display:inline-block;margin-top:8px;
+    font:12.5px var(--mono);color:var(--muted);
+    background:var(--surface);border:1px solid var(--line);
+    padding:3px 9px;border-radius:6px;
+  }
+  .ep-head .summary{
+    margin-top:12px;max-width:66ch;color:var(--muted);font-size:15px;
+  }
+
+  .cols{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,420px);gap:38px;align-items:start}
+  @media (max-width:900px){ .cols{grid-template-columns:1fr;gap:26px} }
+
+  .card{
+    background:var(--surface);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    padding:20px 22px;
+  }
+  .card + .card{margin-top:16px}
+  .card h3{
+    font-size:12px;text-transform:uppercase;letter-spacing:.08em;
+    color:var(--faint);font-weight:600;margin-bottom:12px;
+  }
+
+  /* steps */
+  ol.steps{list-style:none;counter-reset:s;margin:0;padding:0}
+  ol.steps li{
+    counter-increment:s;position:relative;padding-left:30px;margin-bottom:11px;
+    color:var(--muted);font-size:14px;
+  }
+  ol.steps li:last-child{margin-bottom:0}
+  ol.steps li::before{
+    content:counter(s);position:absolute;left:0;top:1px;
+    width:20px;height:20px;border-radius:50%;
+    border:1px solid var(--line);color:var(--ink);
+    font-size:11px;line-height:19px;text-align:center;
+  }
+  ol.steps li strong{color:var(--ink);font-weight:550}
+
+  /* tips */
+  ul.tips{list-style:none;margin:0;padding:0}
+  ul.tips li{
+    position:relative;padding-left:20px;margin-bottom:10px;
+    font-size:14px;color:var(--muted);
+  }
+  ul.tips li:last-child{margin-bottom:0}
+  ul.tips li::before{
+    content:"";position:absolute;left:4px;top:9px;
+    width:5px;height:5px;border-radius:50%;background:var(--faint);
+  }
+  ul.tips li strong{color:var(--ink);font-weight:550}
+
+  /* form */
+  .field{margin-bottom:16px}
+  .field:last-of-type{margin-bottom:20px}
+  .flabel{
+    display:block;font-size:13px;font-weight:550;margin-bottom:5px;
+  }
+  .flabel .req{color:var(--err)}
+  .fhelp{font-size:12.5px;color:var(--faint);margin-top:4px;line-height:1.45}
+  input[type=text],input[type=date],input[type=number],select{
+    width:100%;font:14px inherit;color:var(--ink);
+    background:var(--bg);border:1px solid var(--line);border-radius:8px;
+    padding:8px 10px;
+  }
+  input:focus,select:focus{outline:2px solid var(--ink);outline-offset:-1px}
+  input[type=file]{
+    width:100%;font-size:13px;color:var(--muted);
+    background:var(--bg);border:1px dashed var(--line);border-radius:8px;
+    padding:10px;
+  }
+  input[type=file]::file-selector-button{
+    font:13px inherit;color:var(--ink);
+    background:var(--surface);border:1px solid var(--line);border-radius:7px;
+    padding:6px 12px;margin-right:10px;cursor:pointer;
+  }
+  .fhelp.warn{color:var(--warn)}
+
+  .thumbs{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
+  .thumb{
+    display:flex;align-items:center;gap:9px;
+    border:1px solid var(--line);border-radius:8px;padding:6px 10px 6px 6px;
+    font-size:12px;color:var(--muted);max-width:100%;
+  }
+  .thumb img{width:42px;height:42px;object-fit:cover;border-radius:5px;background:var(--line-soft);flex:none}
+  .thumb .meta{min-width:0}
+  .thumb .nm{display:block;color:var(--ink);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:170px}
+  .thumb .sz{display:block;font-size:11px;color:var(--faint)}
+
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  @media (max-width:520px){ .row2{grid-template-columns:1fr} }
+
+  /* result */
+  .result{margin-top:16px}
+  .note{
+    border:1px solid var(--line);border-radius:8px;padding:12px 14px;
+    font-size:13.5px;line-height:1.5;
+  }
+  .note.ok{border-color:color-mix(in srgb,var(--ok) 32%,transparent)}
+  .note.err{border-color:color-mix(in srgb,var(--err) 32%,transparent)}
+  .note .title{font-weight:600;display:block;margin-bottom:4px}
+  .note ul{margin:6px 0 0;padding-left:18px}
+  .note code{font:12px var(--mono);background:var(--line-soft);padding:1px 4px;border-radius:4px}
+  .dl{
+    display:inline-flex;align-items:center;gap:6px;margin-top:10px;
+    font-size:13.5px;font-weight:550;text-decoration:none;
+    border:1px solid var(--ink);border-radius:8px;padding:7px 14px;
+  }
+  .dl:hover{background:var(--ink);color:var(--bg)}
+  iframe{
+    width:100%;height:520px;margin-top:14px;
+    border:1px solid var(--line);border-radius:8px;background:var(--line-soft);
+  }
+  .preview-toggle{
+    margin-top:12px;font-size:12.5px;color:var(--muted);
+    background:none;border:none;padding:0;text-decoration:underline;
+  }
+
+  footer{
+    border-top:1px solid var(--line);padding:22px 0 40px;
+    font-size:12.5px;color:var(--faint);line-height:1.6;
+  }
+  footer a{color:var(--muted)}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="top-in wrap" style="padding-left:24px;padding-right:24px">
+    <div class="brand">
+      <span class="mark"></span>
+      <div>
+        <h1>Athenas</h1>
+        <p>Guía guiada de los endpoints de comparación</p>
+      </div>
+    </div>
+    <div class="conn">
+      <label for="base">API</label>
+      <input id="base" type="text" spellcheck="false" autocomplete="off">
+      <button id="ping" class="ghost">Verificar</button>
+      <span id="health" class="pill">sin verificar</span>
+    </div>
+  </div>
+</header>
+
+<nav class="tabs" id="tabs" role="tablist"></nav>
+
+<main class="wrap" id="main"></main>
+
+<footer>
+  <div class="wrap">
+    Herramienta de ayuda visual — las figuras y métricas son <strong>descriptores de la fotografía</strong>,
+    no un diagnóstico clínico ni una medición validada. La revisión final siempre es del profesional tratante.
+    <br>
+    <a id="apidocs" href="#" target="_blank" rel="noopener">OpenAPI /docs</a> ·
+    <a id="openspec" href="#" target="_blank" rel="noopener">openapi.json</a>
+  </div>
+</footer>
+
+<script>
+"use strict";
+
+/* ------------------------------------------------------------------ *
+ * Definición de los endpoints. Cada pestaña nace de esta lista:
+ * el contenido explica la forma del formulario.
+ * ------------------------------------------------------------------ */
+const ENDPOINTS = [
+  {
+    id: "trichology",
+    tab: "Tricología",
+    path: "/v1/trichology/compare",
+    headline: "Dos fotos del cuero cabelludo → PDF de 3 páginas",
+    summary:
+      "Compara una foto de línea base (A) con una de seguimiento (B) del mismo paciente y devuelve un PDF " +
+      "con cuatro figuras lado a lado: original, sin fondo (GrabCut), B&W alta definición y cluster Lab (k=3) " +
+      "con el % de cuero cabelludo visible. La tercera página documenta las métricas.",
+    steps: [
+      "<strong>Carga las dos fotos.</strong> A = línea base, B = seguimiento.",
+      "<strong>Fija las fechas</strong> si quieres que aparezcan en el pie de cada figura.",
+      "<strong>Genera el PDF</strong> y revísalo antes de compartirlo con el paciente."
+    ],
+    tips: [
+      "<strong>Misma cámara, misma distancia, misma luz.</strong> La etapa 1 se deja sin tocar a propósito, para que puedas auditar el protocolo de captura.",
+      "El pipeline <strong>normaliza el tamaño de la cabeza</strong> solo (bbox de GrabCut + recorte hasta el cuello). No hace falta recortar a mano, sí conviene que ambas fotos encuadren la cabeza completa.",
+      "<strong>grabcut</strong> es el default y no descarga nada. <strong>rembg</strong> recorta mejor, pero baja ~200 MB en la primera llamada.",
+      "El % de cuero cabelludo de la etapa 4 es una medida <strong>relativa</strong> (A vs B) y mezcla un poco de cuello y frente: no lo leas como porcentaje absoluto.",
+      "Pon <strong>patient_id</strong> y las <strong>fechas</strong>: quedan en el nombre del archivo y en la página de métricas."
+    ],
+    fields: [
+      { name: "baseline", label: "Foto base (A)", type: "file", required: true,
+        help: "Línea base del paciente." },
+      { name: "followup", label: "Foto de seguimiento (B)", type: "file", required: true,
+        help: "Sesión posterior." },
+      { name: "patient_id", label: "ID del paciente", type: "text",
+        help: "Opcional. Se incluye en el nombre del PDF." },
+      { name: "baseline_date", label: "Fecha de la foto base", type: "date",
+        help: "Opcional. Aparece bajo la foto en cada figura." },
+      { name: "followup_date", label: "Fecha de la foto de seguimiento", type: "date",
+        help: "Opcional. Aparece bajo la foto en cada figura." },
+      { name: "bg_method", label: "Quitar fondo", type: "select",
+        options: [
+          ["", "Default del servidor (grabcut)"],
+          ["grabcut", "grabcut — rápido, sin descarga"],
+          ["rembg", "rembg — mejor recorte, descarga ~200 MB"]
+        ],
+        help: "Vacío = el default del servidor." }
+    ]
+  },
+
+  {
+    id: "dermatology",
+    tab: "Dermatología",
+    path: "/v1/dermatology/compare",
+    headline: "Dos o tres fotos de una lesión → PDF de 5 páginas",
+    summary:
+      "Compara 2 (o 3) fotos de una misma lesión cutánea a lo largo del tiempo y devuelve un PDF donde cada " +
+      "filtro visual ocupa una página con la serie temporal lado a lado (A vs B vs C): CLAHE sobre L de Lab, " +
+      "B&W alta definición, color con más contraste y normalización de escala. La quinta página trae las notas.",
+    steps: [
+      "<strong>Carga al menos dos fotos</strong> de la lesión (A, B). La tercera (C) es opcional.",
+      "<strong>Asigna una fecha a cada foto</strong> para que la serie temporal se lea de un vistazo.",
+      "<strong>Toca los parámetros</strong> sólo si la imagen quedó apagada o poco contrastada.",
+      "<strong>Genera el PDF</strong>: siempre sale con 5 páginas, sin importar cuántas fotos mandes."
+    ],
+    tips: [
+      "El PDF <strong>siempre tiene 5 páginas</strong> (4 filtros + notas). Con 2 fotos la serie es A vs B; con 3 es A vs B vs C.",
+      "<strong>target_height</strong> fija el alto de todas las fotos, así la comparación temporal es 1:1. Si cambias de distancia entre sesiones, esa página pierde valor.",
+      "<strong>clahe_clip_limit</strong> alto → más contraste local y bordes de lesión más marcados. <strong>saturation_boost</strong> alto → eritema y pigmentación más evidentes. Ambos tienen rango acotado por la API.",
+      "La API <strong>no convierte px a mm</strong>: la escala real no se mide. Úsalo como comparación visual, no como medición de tamaño.",
+      "Encadara las fotos con <strong>la misma distancia y el mismo encuadre</strong>; el realce sólo funciona si lo demás se mantiene constante."
+    ],
+    fields: [
+      { name: "photo_a", label: "Foto A", type: "file", required: true, help: "Primera toma." },
+      { name: "photo_b", label: "Foto B", type: "file", required: true, help: "Segunda toma." },
+      { name: "photo_c", label: "Foto C (opcional)", type: "file", help: "Tercera toma. Si no la cargas, no se envía." },
+      { name: "patient_id", label: "ID del paciente", type: "text", help: "Opcional. Se incluye en el nombre del PDF." },
+      { name: "date_a", label: "Fecha de la foto A", type: "date", help: "Opcional." },
+      { name: "date_b", label: "Fecha de la foto B", type: "date", help: "Opcional." },
+      { name: "date_c", label: "Fecha de la foto C", type: "date", help: "Opcional." },
+      { name: "target_height", label: "Alto normalizado (px)", type: "number", min: 200, max: 2000,
+        placeholder: "600", help: "Vacío = default del servidor (600). Rango 200–2000." },
+      { name: "clahe_clip_limit", label: "Límite CLAHE", type: "number", min: 0.5, max: 10, step: 0.1,
+        placeholder: "2.0", help: "Vacío = default del servidor (2.0). Rango 0.5–10." },
+      { name: "saturation_boost", label: "Boost de saturación", type: "number", min: 1, max: 2, step: 0.05,
+        placeholder: "1.2", help: "Vacío = default del servidor (1.2). Rango 1.0–2.0." }
+    ]
+  },
+
+  {
+    id: "aesthetics",
+    tab: "Estética",
+    path: "/v1/aesthetics/compare",
+    headline: "Antes y después de bótox → PDF de 3 páginas",
+    summary:
+      "Compara dos fotos del rostro del mismo paciente (antes y después de la sesión) y devuelve un PDF con " +
+      "el rostro normalizado y el relieve de líneas de expresión, el B&W más el mapa de cambio antes → después, " +
+      "y una tabla de densidad de líneas por región con los chequeos de protocolo de captura.",
+    steps: [
+      "<strong>Carga la foto anterior y la posterior</strong> del mismo paciente.",
+      "<strong>Mantén el protocolo</strong>: misma cámara, misma distancia, misma luz, misma expresión.",
+      "<strong>Genera el PDF</strong> y revisa primero los chequeos de protocolo de la página 3."
+    ],
+    tips: [
+      "El detector de líneas también capta <strong>cejas y bordes del pelo</strong>. Por eso la densidad siempre se lee junto al overlay y desglosada por región.",
+      "<strong>wrinkle_threshold</strong> más alto = sólo las líneas más marcadas. Súbelo si hay mucho ruido; bájelo si las líneas del tratamiento no aparecen.",
+      "Un <strong>Δ negativo</strong> por región significa menos líneas después: es el efecto esperado del bótox. Es un descriptor de la imagen, no una medición clínica validada.",
+      "La alineación (rotación, escala, traslación) es automática, pero <strong>no compensa</strong> un cambio de peinado, de gafas o de iluminación.",
+      "Los <strong>chequeos de protocolo</strong> de la página 3 marcan [OK] o [REVISAR] cuando la pose, la escala o la luz difieren entre las dos fotos."
+    ],
+    fields: [
+      { name: "photo_before", label: "Foto anterior", type: "file", required: true, help: "Antes de la sesión." },
+      { name: "photo_after", label: "Foto posterior", type: "file", required: true, help: "Después de la sesión." },
+      { name: "patient_id", label: "ID del paciente", type: "text", help: "Opcional. Se incluye en el PDF y en el nombre del archivo." },
+      { name: "date_before", label: "Fecha de la foto anterior", type: "date", help: "Opcional." },
+      { name: "date_after", label: "Fecha de la foto posterior", type: "date", help: "Opcional." },
+      { name: "target_height", label: "Alto del rostro normalizado (px)", type: "number", min: 200, max: 2000,
+        placeholder: "900", help: "Vacío = default del servidor (900). Rango 200–2000." },
+      { name: "wrinkle_threshold", label: "Umbral del detector de líneas", type: "number", min: 50, max: 99.5, step: 0.5,
+        placeholder: "92", help: "Vacío = default del servidor (92). Percentil: más alto = sólo las líneas más marcadas." }
+    ]
+  }
+];
+
+/* ------------------------------------------------------------------ *
+ * Utilidades
+ * ------------------------------------------------------------------ */
+const $ = (sel, root = document) => root.querySelector(sel);
+
+/* Escape a string before it reaches an `html:` sink — the API echoes back
+   raw error text (e.g. the temp-file path), which must never be parsed
+   as markup. */
+function esc(s) {
+  return String(s).replace(/[&<>"']/g, (c) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+  }[c]));
+}
+
+function el(tag, props = {}, children = []) {
+  const node = document.createElement(tag);
+  for (const [k, v] of Object.entries(props)) {
+    if (k === "class") node.className = v;
+    else if (k === "text") node.textContent = v;
+    else if (k === "html") node.innerHTML = v;
+    else if (k.startsWith("on")) node.addEventListener(k.slice(2), v);
+    else if (v !== null && v !== undefined && v !== false) node.setAttribute(k, v);
+  }
+  for (const c of [].concat(children)) if (c) node.append(c);
+  return node;
+}
+
+const base = () => $("#base").value.trim().replace(/\/+$/, "");
+const baseDefault =
+  location.protocol === "file:" ? "http://127.0.0.1:8000" : location.origin;
+
+$("#base").value = localStorage.getItem("athenas.base") || baseDefault;
+$("#base").addEventListener("change", () => {
+  localStorage.setItem("athenas.base", $("#base").value.trim());
+  syncDocLinks();
+  ping();
+});
+
+function syncDocLinks() {
+  $("#apidocs").href = base() + "/docs";
+  $("#openspec").href = base() + "/openapi.json";
+}
+
+/* ------------------------------------------------------------------ *
+ * Pestañas
+ * ------------------------------------------------------------------ */
+const tabBar = $("#tabs");
+const main = $("#main");
+const panels = {};
+
+ENDPOINTS.forEach((ep, i) => {
+  const tab = el("button", {
+    role: "tab",
+    id: "tab-" + ep.id,
+    type: "button",
+    "aria-selected": i === 0 ? "true" : "false",
+    text: ep.tab,
+    onclick: () => select(ep.id)
+  });
+  tabBar.append(tab);
+
+  const panel = el("section", {
+    class: "ep" + (i === 0 ? " on" : ""),
+    id: "panel-" + ep.id,
+    role: "tabpanel",
+    "aria-labelledby": "tab-" + ep.id
+  });
+
+  panel.append(
+    el("div", { class: "ep-head" }, [
+      el("h2", { text: ep.headline }),
+      el("code", { class: "path", text: "POST " + ep.path }),
+      el("p", { class: "summary", text: ep.summary })
+    ])
+  );
+
+  const left = el("div");
+  left.append(
+    el("div", { class: "card" }, [
+      el("h3", { text: "Cómo se usa" }),
+      el("ol", { class: "steps" }, ep.steps.map((s) => el("li", { html: s })))
+    ]),
+    el("div", { class: "card" }, [
+      el("h3", { text: "Tips de captura" }),
+      el("ul", { class: "tips" }, ep.tips.map((t) => el("li", { html: t })))
+    ])
+  );
+
+  const right = el("div");
+  const form = el("form", { class: "card", novalidate: true, onsubmit: (ev) => submit(ev, ep) });
+  form.append(el("h3", { text: "Parámetros" }));
+
+  ep.fields.forEach((f) => form.append(renderField(f, ep.id)));
+
+  const btn = el("button", { class: "primary", type: "submit", text: "Generar PDF" });
+  form.append(btn);
+
+  const out = el("div", { class: "result" });
+  right.append(form, out);
+
+  panel.append(el("div", { class: "cols" }, [left, right]));
+  main.append(panel);
+  panels[ep.id] = { panel, out, btn };
+});
+
+function select(id) {
+  for (const ep of ENDPOINTS) {
+    const on = ep.id === id;
+    panels[ep.id].panel.classList.toggle("on", on);
+    $("#tab-" + ep.id).setAttribute("aria-selected", on ? "true" : "false");
+  }
+  location.hash = id;
+}
+
+/* ------------------------------------------------------------------ *
+ * Campos
+ * ------------------------------------------------------------------ */
+function renderField(f, epId) {
+  const wrap = el("div", { class: "field" });
+  // The id is namespaced per endpoint: several tabs share field names
+  // (patient_id, target_height) and duplicate ids would break the <label for>.
+  const id = "f_" + epId + "_" + f.name;
+
+  wrap.append(
+    el("label", {
+      class: "flabel",
+      for: id,
+      html: f.label + (f.required ? ' <span class="req">*</span>' : "")
+    })
+  );
+
+  if (f.type === "file") {
+    const input = el("input", { type: "file", id, accept: "image/*" });
+    const thumbs = el("div", { class: "thumbs" });
+    input.addEventListener("change", () => renderThumbs(input, thumbs));
+    wrap.append(input, thumbs);
+  } else if (f.type === "select") {
+    const sel = el("select", { id });
+    f.options.forEach(([value, label]) => {
+      sel.append(el("option", { value, text: label }));
+    });
+    wrap.append(sel);
+  } else {
+    const input = el("input", {
+      type: f.type,
+      id,
+      placeholder: f.placeholder || "",
+      min: f.min !== undefined ? f.min : null,
+      max: f.max !== undefined ? f.max : null,
+      step: f.step !== undefined ? f.step : null
+    });
+    wrap.append(input);
+  }
+
+  if (f.help) wrap.append(el("div", { class: "fhelp", text: f.help }));
+  return wrap;
+}
+
+function renderThumbs(input, thumbs) {
+  thumbs.replaceChildren();
+  const file = input.files[0];
+  if (!file) return;
+
+  const mb = file.size / (1024 * 1024);
+  const img = el("img", { alt: file.name });
+  const url = URL.createObjectURL(file);
+  img.addEventListener("load", () => URL.revokeObjectURL(url));
+  img.src = url;
+
+  thumbs.append(
+    el("div", { class: "thumb" }, [
+      img,
+      el("div", { class: "meta" }, [
+        el("span", { class: "nm", text: file.name }),
+        el("span", { class: "sz", text: mb.toFixed(1) + " MB" })
+      ])
+    ])
+  );
+
+  if (mb > 25) {
+    thumbs.append(
+      el("div", { class: "fhelp warn", text:
+        "⚠ Este archivo pesa " + mb.toFixed(1) + " MB. El límite recomendado es 25 MB por imagen." })
+    );
+  }
+}
+
+/* ------------------------------------------------------------------ *
+ * Envío
+ * ------------------------------------------------------------------ */
+const MSG_ES = {
+  "Field required": "campo obligatorio",
+  "Input should be a valid string": "debe ser texto",
+  "Input should be a valid integer": "debe ser un número entero",
+  "Input should be a valid number": "debe ser un número",
+  "Input should be a valid date": "debe ser una fecha válida"
+};
+
+function humanize(msg) {
+  let m = msg.replace(/^Value error,\s*/, "");
+  const num = m.match(/Input should be (less than or equal to|greater than or equal to) (\d+(\.\d+)?)/);
+  if (num) {
+    return num[1] === "less than or equal to"
+      ? "debe ser ≤ " + num[2]
+      : "debe ser ≥ " + num[2];
+  }
+  return MSG_ES[m] || m;
+}
+
+function showError(out, title, lines) {
+  out.replaceChildren(
+    el("div", { class: "note err" }, [
+      el("span", { class: "title", text: title }),
+      lines && lines.length
+        ? el("ul", {}, lines.map((l) => el("li", { html: l })))
+        : null
+    ])
+  );
+  out.scrollIntoView({ behavior: "smooth", block: "nearest" });
+}
+
+async function submit(ev, ep) {
+  ev.preventDefault();
+  const { out, btn } = panels[ep.id];
+  out.replaceChildren();
+
+  const fd = new FormData();
+  const missing = [];
+  const invalid = [];
+  ep.fields.forEach((f) => {
+    const input = $("#f_" + ep.id + "_" + f.name, ev.target);
+    if (f.type === "file") {
+      const file = input.files[0];
+      if (file) fd.append(f.name, file);
+      else if (f.required) missing.push(f.label.replace(/\s*\*$/, ""));
+      return;
+    }
+    const v = input.value.trim();
+    if (v === "") return;
+    if (f.type === "number") {
+      const n = Number(v);
+      if (Number.isNaN(n)) invalid.push("<code>" + f.label + "</code>: debe ser un número");
+      else if (f.min !== undefined && n < f.min) invalid.push("<code>" + f.label + "</code>: debe ser ≥ " + f.min);
+      else if (f.max !== undefined && n > f.max) invalid.push("<code>" + f.label + "</code>: debe ser ≤ " + f.max);
+      else fd.append(f.name, v);
+      return;
+    }
+    fd.append(f.name, v);
+  });
+
+  if (missing.length) {
+    showError(out, "Faltan archivos obligatorios", missing.map((m) => "Carga <code>" + m + "</code>."));
+    return;
+  }
+  if (invalid.length) {
+    showError(out, "Revisa los parámetros", invalid);
+    return;
+  }
+
+  btn.disabled = true;
+  const label = btn.textContent;
+  const t0 = Date.now();
+  const tick = setInterval(() => {
+    btn.textContent = "Generando… " + Math.round((Date.now() - t0) / 1000) + "s";
+  }, 500);
+
+  try {
+    const res = await fetch(base() + ep.path, { method: "POST", body: fd });
+
+    if (!res.ok) {
+      let detail = null;
+      try {
+        const body = await res.json();
+        if (Array.isArray(body.detail)) {
+          detail = body.detail.map((d) => {
+            const field = (d.loc || []).filter((x) => x !== "body").join(".");
+            const msg = esc(humanize(d.msg));
+            return field ? "<code>" + esc(field) + "</code>: " + msg : msg;
+          });
+        } else if (typeof body.detail === "string") {
+          detail = [esc(body.detail)];
+        }
+      } catch (_) { /* respuesta sin JSON */ }
+
+      showError(
+        out,
+        res.status === 422 ? "Datos no válidos" : res.status === 400 ? "El endpoint rechazó las imágenes" : "Error " + res.status,
+        detail
+      );
+      return;
+    }
+
+    const blob = await res.blob();
+    const cd = res.headers.get("Content-Disposition") || "";
+    const m = /filename\*?=(?:UTF-8'')?"?([^";]+)"?/i.exec(cd);
+    const filename = m ? decodeURIComponent(m[1]) : ep.id + ".pdf";
+
+    const url = URL.createObjectURL(blob);
+    const dl = el("a", { class: "dl", href: url, download: filename, text: "↓ Descargar " + filename });
+
+    const note = el("div", { class: "note ok" }, [
+      el("span", { class: "title", text: "PDF listo" }),
+      el("span", {
+        text:
+          (blob.size / 1024).toFixed(0) + " KB · " +
+          "tardó " + ((Date.now() - t0) / 1000).toFixed(1) + " s"
+      })
+    ]);
+
+    const frame = el("iframe", { src: url, title: "Vista previa del PDF" });
+    frame.style.display = "none";
+    const toggle = el("button", {
+      class: "preview-toggle",
+      type: "button",
+      text: "Ver vista previa en la página",
+      onclick: () => {
+        const open = frame.style.display === "none";
+        frame.style.display = open ? "block" : "none";
+        toggle.textContent = open ? "Ocultar vista previa" : "Ver vista previa en la página";
+      }
+    });
+
+    out.replaceChildren(note, dl, toggle, frame);
+  } catch (err) {
+    showError(out, "No se pudo conectar con la API", [
+      "Revisa que el servidor esté arriba y que la URL en la barra superior sea correcta.<br>" +
+      "<code>" + base() + "</code><br>Error: " + err.message
+    ]);
+  } finally {
+    clearInterval(tick);
+    btn.disabled = false;
+    btn.textContent = label;
+  }
+}
+
+/* ------------------------------------------------------------------ *
+ * Health check
+ * ------------------------------------------------------------------ */
+async function ping() {
+  const pill = $("#health");
+  pill.className = "pill";
+  pill.textContent = "verificando…";
+  try {
+    const res = await fetch(base() + "/health");
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const body = await res.json();
+    pill.className = "pill ok";
+    pill.textContent = "en línea · v" + (body.version || "?");
+  } catch (err) {
+    pill.className = "pill err";
+    pill.textContent = "sin respuesta";
+  }
+}
+
+$("#ping").addEventListener("click", ping);
+syncDocLinks();
+ping();
+if (location.hash) {
+  const id = location.hash.slice(1);
+  if (ENDPOINTS.some((e) => e.id === id)) select(id);
+}
+</script>
+</body>
+</html>

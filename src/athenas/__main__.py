@@ -92,7 +92,7 @@ def main(
     """Athenas — visual comparator for trichology follow-up photos.
 
     Runs in memory; the only file produced is the PDF report (4 stages,
-    2 panels per page, 2 pages total).
+    2 panels per page, 3 pages total: 2 photo pages + 1 metrics page).
     """
     _setup_logging(verbose)
 

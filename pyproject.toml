@@ -22,8 +22,12 @@ dependencies = [
     "click>=8.1",
     "fastapi>=0.115",
     "matplotlib>=3.9",
+    "mediapipe>=0.10.20,<1.0",
     "numpy>=2.0",
-    "opencv-python>=4.10",
+    # MediaPipe already pulls `opencv-contrib-python`; declaring it here too
+    # would install two distributions over the same `cv2` package. The contrib
+    # build is a strict superset of the plain one, so it is the single choice.
+    "opencv-contrib-python>=4.10",
     "pillow>=10.4",
     "pillow-heif>=1.8.0",
     "pydantic-settings>=2.2",
